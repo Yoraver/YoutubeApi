@@ -96,41 +96,35 @@ Router.post('/login', async(req, res) => {
     }
 });
 
-// subscribe
-Router.put('/subscribe/:userBid',checkAuth, async(req,res)=>{
-    try{
+// Subscribe to a channel
+Router.put('/subscribe/:userBid', checkAuth, async (req, res) => {
+    try {
         const userA = await jwt.verify(req.headers.authorization.split(" ")[1], 'Yoravers Project');
-    console.log(userA);
-    const userB = await User.findById(req.params.userBid);
-    console.log(userB);
-    if(userB.subscribedBy.includes(userA._id))
-    {
-        return res.status(500).json({
-            error:'You have already subscribed this channel'
-        })
-    }    
+        const userB = await User.findById(req.params.userBid);
 
-    //console.log('Not subscribed yet');
+        if (!userB.subscribedBy.includes(userA._id)) {
+            userB.subscribers += 1;
+            userB.subscribedBy.push(userA._id);
+            await userB.save();
 
-    userB.subscribers += 1;
-    userB.subscribedBy.push(userA._id);
-    await userB.save();
-    const userAFullInformation = await User.findById(userA._id);
-    userAFullInformation.subscribedChannels.push(userB._id);
-    await userAFullInformation.save();
-    res.status(200).json({
-        msg:'Subscribed..'
-        
-    })
-    }
-    catch(err)
-    {
+            const userAFullInformation = await User.findById(userA._id);
+            userAFullInformation.subscribedChannels.push(userB._id);
+            await userAFullInformation.save();
+
+            res.status(200).json({
+                msg: 'Subscribed successfully'
+            });
+        } else {
+            res.status(400).json({
+                error: 'You are already subscribed to this channel'
+            });
+        }
+    } catch (err) {
         console.log(err);
         res.status(500).json({
-            error:err
-        })
+            error: 'Internal server error'
+        });
     }
-
 });
 
 // unsubscribe
