@@ -34,7 +34,7 @@ Router.post('/new-comment/:videoId', checkAuth, async (req, res) => {
 Router.get('/:videoId',async(req,res)=>{
    try
    {
-    const comments = await Comment.find({videoId:req.params.videoId}).populate('user_Id','channelName logoUrl');
+    const comments = await Comment.find({videoId:req.params.videoId}).populate('user_Id','channelName logoURL');
     res.status(200).json({
          commentList:comments
     })
