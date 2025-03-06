@@ -5,7 +5,6 @@ const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
 const Video = require('../models/Video');
 const mongoose = require('mongoose');
-//const { response } = require('../app');
 
 cloudinary.config({ 
     cloud_name: process.env.CLOUD_NAME, 
@@ -14,53 +13,50 @@ cloudinary.config({
 });
 
 //get uploaded video
-Router.get('/own-video',checkAuth,async(req,res)=>{
-    try
-    {
+Router.get('/own-video', checkAuth, async (req, res) => {
+    try {
         const token = req.headers.authorization.split(" ")[1];
         const user = await jwt.verify(token, 'Yoravers Project');
         console.log(user);
-        const videos = await Video.find({user_id:user._id}).populate('user_id','channelName logoURL subscribers title views')
+        const videos = await Video.find({ user_id: user._id }).populate('user_id', 'channelName logoURL subscribers');
         res.status(200).json({
-            videos:videos
-        })
-    }
-    catch(err)
-    {
-        console.log(err)
+            videos: videos
+        });
+    } catch (err) {
+        console.log(err);
         res.status(500).json({
-            error:err
-        })
+            error: err
+        });
     }
-})
+});
 
 //upload video
 Router.post('/upload', checkAuth, async (req, res) => {
     try {
         const token = req.headers.authorization.split(" ")[1];
         const user = await jwt.verify(token, 'Yoravers Project');
-        const uploadedVideo = await cloudinary.uploader.upload(req.files.video.tempFilePath,{
+        const uploadedVideo = await cloudinary.uploader.upload(req.files.video.tempFilePath, {
             resource_type: 'video'
         });
         const uploadedThumbnail = await cloudinary.uploader.upload(req.files.thumbnail.tempFilePath);
 
         const newVideo = new Video({
             _id: new mongoose.Types.ObjectId(),
-                title: req.body.title,
-                description: req.body.description,
-                user_id: user._id,
-                videoURL: uploadedVideo.secure_url,
-                videoId: uploadedVideo.public_id,
-                thumbnailURL: uploadedThumbnail.secure_url,
-                thumbnailId: uploadedThumbnail.public_id,
-                category: req.body.category,
-                tags: req.body.tags.split(",")      
+            title: req.body.title,
+            description: req.body.description,
+            user_id: user._id,
+            videoURL: uploadedVideo.secure_url,
+            videoId: uploadedVideo.public_id,
+            thumbnailURL: uploadedThumbnail.secure_url,
+            thumbnailId: uploadedThumbnail.public_id,
+            category: req.body.category,
+            tags: req.body.tags.split(",")
         });
 
         const newUploadedVideoData = await newVideo.save();
         res.status(200).json({
-            newVideo:newUploadedVideoData
-        })
+            newVideo: newUploadedVideoData
+        });
 
     } catch (err) {
         console.log(err);
@@ -76,7 +72,7 @@ Router.put('/:videoId', checkAuth, async (req, res) => {
         const verifiedUser = await jwt.verify(req.headers.authorization.split(" ")[1], 'Yoravers Project');
         const video = await Video.findById(req.params.videoId);
 
-        if (video.user_id == verifiedUser._id) {
+        if (video.user_id.toString() === verifiedUser._id) {
             let updatedData = {
                 title: req.body.title,
                 description: req.body.description,
@@ -121,135 +117,115 @@ Router.put('/:videoId', checkAuth, async (req, res) => {
 });
 
 //delete video
-Router.delete('/:videoId', checkAuth, async(req,res)=>{
-    try
-    {
+Router.delete('/:videoId', checkAuth, async (req, res) => {
+    try {
         const verifiedUser = await jwt.verify(req.headers.authorization.split(" ")[1], 'Yoravers Project');
         console.log(verifiedUser);
         const video = await Video.findById(req.params.videoId);
-        if(video.user_id == verifiedUser._id)
-        {
-            await cloudinary.uploader.destroy(video.videoId,{resource_type: 'video'})
-            await cloudinary.uploader.destroy(video.thumbnailId)
-            const deletedResponse = await Video.findByIdAndDelete(req.params.videoId)
+        if (video.user_id.toString() === verifiedUser._id) {
+            await cloudinary.uploader.destroy(video.videoId, { resource_type: 'video' });
+            await cloudinary.uploader.destroy(video.thumbnailId);
+            const deletedResponse = await Video.findByIdAndDelete(req.params.videoId);
             res.status(200).json({
-                deletedResponse:deletedResponse
-            })
-        }
-        else
-        {
+                deletedResponse: deletedResponse
+            });
+        } else {
             return res.status(500).json({
-                error:'No can do my friend'
-            })
+                error: 'No can do my friend'
+            });
         }
-    }
-    catch(err)
-    {
+    } catch (err) {
         console.log(err);
         res.status(500).json({
-            error:err
-        })
+            error: err
+        });
     }
-
 });
 
 //like video
-Router.put('/like/:videoId',checkAuth,async(req,res)=>{
-    try
-    {
+Router.put('/like/:videoId', checkAuth, async (req, res) => {
+    try {
         const verifiedUser = await jwt.verify(req.headers.authorization.split(" ")[1], 'Yoravers Project');
         console.log(verifiedUser);
         const video = await Video.findById(req.params.videoId);
         console.log(video);
-        if(video.likedBy.includes(verifiedUser._id))
-        {
+        if (video.likedBy.includes(verifiedUser._id)) {
             return res.status(500).json({
-                error:'You have already liked this video'
-            })
+                error: 'You have already liked this video'
+            });
         }
-        
-        if(video.dislikedBy.includes(verifiedUser._id))
-        {
-            video.dislike -= 1;
-            video.dislikedBy = video.dislikedBy.filter(userId=>userId.toString() != verifiedUser._id);
+
+        if (video.dislikedBy.includes(verifiedUser._id)) {
+            video.dislikes -= 1;
+            video.dislikedBy = video.dislikedBy.filter(userId => userId.toString() !== verifiedUser._id);
         }
 
         video.likes += 1;
         video.likedBy.push(verifiedUser._id);
         await video.save();
-        
+
         res.status(200).json({
-            msg:'Video liked',
+            msg: 'Video liked',
             video
-        })    
-    }
-    catch(err)
-    {
+        });
+    } catch (err) {
         console.log(err);
         res.status(500).json({
-            error:err
-        })
+            error: err
+        });
     }
 });
 
 //dislike video
-Router.put('/dislike/:videoId',checkAuth,async(req,res)=>{
-    try
-    {
+Router.put('/dislike/:videoId', checkAuth, async (req, res) => {
+    try {
         const verifiedUser = await jwt.verify(req.headers.authorization.split(" ")[1], 'Yoravers Project');
         console.log(verifiedUser);
         const video = await Video.findById(req.params.videoId);
         console.log(video);
-        if(video.dislikedBy.includes(verifiedUser._id))
-        {
+        if (video.dislikedBy.includes(verifiedUser._id)) {
             return res.status(500).json({
-                error:'You have already disliked this video'
-            })
+                error: 'You have already disliked this video'
+            });
         }
 
-        if(video.likedBy.includes(verifiedUser._id))
-            {
-                video.likes -= 1;
-                video.likedBy = video.likedBy.filter(userId=>userId.toString() != verifiedUser._id);
-            }
+        if (video.likedBy.includes(verifiedUser._id)) {
+            video.likes -= 1;
+            video.likedBy = video.likedBy.filter(userId => userId.toString() !== verifiedUser._id);
+        }
 
-        video.dislike += 1;
+        video.dislikes += 1;
         video.dislikedBy.push(verifiedUser._id);
         await video.save();
-        
+
         res.status(200).json({
-            msg:'Video disliked',
+            msg: 'Video disliked',
             video
-        })    
-    }
-    catch(err)
-    {
+        });
+    } catch (err) {
         console.log(err);
         res.status(500).json({
-            error:err
-        })
+            error: err
+        });
     }
 });
 
 // views
-Router.put('/views/:videoId',async(req,res)=>{
-    try
-    {
+Router.put('/views/:videoId', async (req, res) => {
+    try {
         const video = await Video.findById(req.params.videoId);
         console.log(video);
         video.views += 1;
         await video.save();
         res.status(200).json({
-            msg:'ok'
-        })
-    }
-    catch(err)
-    {
-        console.log(err)
+            msg: 'ok'
+        });
+    } catch (err) {
+        console.log(err);
         res.status(500).json({
-            error:err
-        })
+            error: err
+        });
     }
-})
+});
 
 module.exports = Router;
